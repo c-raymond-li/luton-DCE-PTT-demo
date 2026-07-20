@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Luton Public Health: Preference &amp; Threshold Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#EFF1EE; --paper-raised:#FBFBF9; --ink:#1E2A2E; --ink-soft:#5B6B66;
+    --line:#C9D0CA; --teal:#2F6F62; --teal-deep:#1F4C43;
+    --amber:#DA9A3A; --amber-deep:#9C6A1E; --amber-wash: rgba(218,154,58,0.13);
+    --brick:#AB4B3C; --brick-deep:#7C332A; --clip:#8B948E;
+    --shadow: 0 1px 0 rgba(30,42,46,0.06), 0 8px 24px -12px rgba(30,42,46,0.25);
+    --radius: 14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--paper); color:var(--ink); font-family:'Inter',system-ui,sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased;}
+  @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+  h1,h2,h3,.display{font-family:'Fraunces',serif; font-weight:600; letter-spacing:-0.01em; margin:0;}
+  .num{font-variant-numeric:tabular-nums; font-feature-settings:"tnum";}
+  .wrap{max-width:920px; margin:0 auto; padding:20px 18px 60px;}
+  .wrap.presenter{max-width:1180px;}
+  .eyebrow{font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-soft); font-weight:600; margin-bottom:6px;}
+  header.top{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:18px; flex-wrap:wrap;}
+  header.top h1{font-size:22px;}
+  .view-toggle{margin:-6px 0 18px; text-align:right;}
+  .badge{font-size:12px; padding:4px 10px; border-radius:999px; background:var(--paper-raised); border:1px solid var(--line); color:var(--ink-soft); font-weight:600;}
+
+  .clipboard{position:relative; background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:30px 24px 26px; margin-bottom:18px;}
+  .clipboard::before{content:""; position:absolute; top:-13px; left:50%; transform:translateX(-50%); width:96px; height:26px; background:var(--clip); border-radius:8px; box-shadow:0 3px 0 rgba(0,0,0,0.08);}
+  .clipboard::after{content:""; position:absolute; top:-6px; left:50%; transform:translateX(-50%); width:34px; height:12px; background:var(--paper-raised); border-radius:4px; border:1px solid var(--line); border-bottom:none;}
+
+  .lede{color:var(--ink-soft); font-size:15px; line-height:1.5; margin:6px 0 0;}
+  .disclaimer{font-size:12px; color:var(--ink-soft); border-top:1px dashed var(--line); margin-top:22px; padding-top:12px; line-height:1.5;}
+
+  .reference-box{background:var(--amber-wash); border:1.5px solid var(--amber); border-radius:10px; padding:14px 16px; margin:14px 0; font-size:14px; line-height:1.5;}
+  .reference-box b{color:var(--amber-deep);}
+  .method-note{background:rgba(47,111,98,0.08); border:1px solid var(--teal); border-radius:10px; padding:14px 16px; margin:14px 0; font-size:13.5px; line-height:1.55; color:var(--ink);}
+  .method-note h3{font-size:14px; margin-bottom:6px; color:var(--teal-deep);}
+
+  .menu-grid{display:grid; gap:14px; margin-top:16px;}
+  @media(min-width:600px){.menu-grid{grid-template-columns:1fr 1fr;}}
+  .mode-btn{text-align:left; background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:18px 18px 16px; cursor:pointer; font-family:inherit; color:var(--ink); transition:transform .15s ease, box-shadow .15s ease;}
+  .mode-btn:hover{transform:translateY(-2px); box-shadow:var(--shadow);}
+  .mode-btn:focus-visible{outline:3px solid var(--teal); outline-offset:2px;}
+
+  .options{display:grid; gap:14px; margin-top:16px;}
+  @media(min-width:640px){.options{grid-template-columns:1fr 1fr;}}
+  .option{background:var(--paper-raised); border:2px solid var(--line); border-radius:12px; padding:20px 18px; cursor:pointer; font-family:inherit; text-align:left; color:var(--ink); display:flex; flex-direction:column; gap:10px; transition:border-color .15s ease, transform .15s ease, background .15s ease;}
+  .option:hover{transform:translateY(-2px);}
+  .option:focus-visible{outline:3px solid var(--teal); outline-offset:2px;}
+  .option.one{border-color:var(--teal);}
+  .option.two{border-color:var(--amber);}
+  .option.selected.one{background:rgba(47,111,98,0.12);}
+  .option.selected.two{background:rgba(218,154,58,0.14);}
+  .option.disabled{opacity:.55; cursor:default; transform:none;}
+  .opt-label{font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:700;}
+  .option.one .opt-label{color:var(--teal-deep);}
+  .option.two .opt-label{color:var(--amber-deep);}
+  .opt-line{font-size:15px; line-height:1.45;}
+
+  .risk-card{background:var(--paper-raised); border:2px solid var(--line); border-radius:12px; padding:22px 20px; margin-top:16px;}
+  .yn{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:18px;}
+  .yn button{padding:16px; border-radius:10px; font-family:inherit; font-size:16px; font-weight:600; cursor:pointer; border:2px solid transparent; transition:transform .15s ease, background .15s ease;}
+  .yn button:hover{transform:translateY(-2px);}
+  .yn button:focus-visible{outline:3px solid var(--ink); outline-offset:2px;}
+  .yn .yes{background:rgba(47,111,98,0.10); border-color:var(--teal); color:var(--teal-deep);}
+  .yn .yes.selected{background:rgba(47,111,98,0.28);}
+  .yn .no{background:rgba(171,75,60,0.10); border-color:var(--brick); color:var(--brick-deep);}
+  .yn .no.selected{background:rgba(171,75,60,0.26);}
+  .yn button.disabled{opacity:.5; cursor:default; transform:none;}
+
+  .submit-row{margin-top:14px; text-align:right;}
+  .submit-btn{padding:12px 22px; border-radius:9px; font-family:inherit; font-size:15px; font-weight:700; cursor:pointer; border:none; background:var(--ink); color:#fff;}
+  .submit-btn:disabled{background:var(--line); color:var(--ink-soft); cursor:not-allowed;}
+
+  .waiting{text-align:center; padding:40px 16px; color:var(--ink-soft);}
+
+  .presenter-grid{display:grid; gap:18px; grid-template-columns:1fr;}
+  @media(min-width:900px){.presenter-grid{grid-template-columns:1.6fr 1fr;}}
+  .panel{background:var(--paper-raised); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:22px 22px 20px;}
+  .panel h2{font-size:18px; margin-bottom:14px;}
+  .bar-row{margin-bottom:16px;}
+  .bar-row .lbl{display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px; gap:10px;}
+  .bar-row .lbl b{font-weight:700;}
+  .bar-track{height:34px; border-radius:8px; background:var(--paper); border:1px solid var(--line); overflow:hidden;}
+  .bar-fill{height:100%; transition:width .4s ease;}
+  .bar-fill.teal{background:var(--teal);} .bar-fill.amber{background:var(--amber);} .bar-fill.brick{background:var(--brick);}
+  .totalcount{font-size:13px; color:var(--ink-soft); margin-top:4px;}
+
+  .stacked-row{margin-bottom:14px;}
+  .stacked-caption{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px; gap:10px;}
+  .stacked-track{display:flex; height:28px; border-radius:8px; overflow:hidden; border:1px solid var(--line);}
+  .stacked-seg{height:100%; transition:width .4s ease;}
+  .stacked-seg.teal{background:var(--teal);} .stacked-seg.amber{background:var(--amber);} .stacked-seg.brick{background:var(--brick);}
+
+  .diverge-row{margin-bottom:14px;}
+  .diverge-label{font-size:13px; margin-bottom:4px; display:flex; justify-content:space-between; gap:10px;}
+  .diverge-track{position:relative; height:22px; background:var(--paper); border:1px solid var(--line); border-radius:6px; overflow:hidden;}
+  .diverge-track::after{content:""; position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--ink-soft); opacity:.5;}
+  .diverge-fill{position:absolute; top:0; bottom:0;}
+  .diverge-fill.pos{left:50%; background:var(--teal);}
+  .diverge-fill.neg{right:50%; background:var(--brick);}
+
+  .ctrl-row{display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;}
+  .btn{font-family:inherit; font-size:14px; font-weight:600; padding:10px 16px; border-radius:8px; border:1px solid var(--line); background:var(--paper-raised); color:var(--ink); cursor:pointer;}
+  .btn:hover{background:var(--paper);}
+  .btn:disabled{opacity:.45; cursor:not-allowed;}
+  .btn:focus-visible{outline:3px solid var(--teal); outline-offset:2px;}
+  .btn.primary{background:var(--teal); border-color:var(--teal); color:#fff;}
+  .btn.primary:hover{background:var(--teal-deep);}
+  .btn.ghost{color:var(--brick-deep); border-color:var(--brick);}
+  .btn.small{padding:7px 12px; font-size:13px;}
+  .mode-tabs{display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;}
+  .mode-tabs button{font-family:inherit; font-size:13px; font-weight:600; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--paper); cursor:pointer;}
+  .mode-tabs button.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  .join-box{text-align:center;}
+  #qrcode-container{display:flex; justify-content:center; margin:6px 0;}
+  #qrcode-container img, #qrcode-container canvas{border-radius:10px; border:1px solid var(--line); background:#fff; padding:8px;}
+  .join-url{font-size:13px; word-break:break-all; margin-top:10px; color:var(--ink-soft); background:var(--paper); padding:8px 10px; border-radius:8px; border:1px solid var(--line);}
+  .log-list{list-style:none; padding:0; margin:10px 0 0; font-size:13px; max-height:150px; overflow:auto;}
+  .log-list li{padding:5px 0; border-bottom:1px dashed var(--line); color:var(--ink-soft); display:flex; justify-content:space-between; gap:8px;}
+  .threshold-flag{margin-top:12px; padding:10px 12px; border-radius:8px; background:var(--amber-wash); border:1px solid var(--amber); font-size:13.5px;}
+
+  .gate-box{max-width:360px; margin:60px auto; text-align:center;}
+  .gate-box input{width:100%; padding:12px; border-radius:8px; border:1px solid var(--line); font-family:inherit; font-size:15px; margin:14px 0 8px; text-align:center;}
+  .gate-error{color:var(--brick-deep); font-size:13px; min-height:18px;}
+
+  .results-table{width:100%; border-collapse:collapse; font-size:13.5px; margin-top:10px;}
+  .results-table th, .results-table td{text-align:left; padding:8px 6px; border-bottom:1px solid var(--line);}
+  .results-table th{color:var(--ink-soft); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.04em;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---- FIREBASE CONFIG: fill this in before publishing to GitHub Pages ----
+  // window.storage (used when this ran as a Claude artifact) only exists
+  // inside claude.ai, a plain static page has no backend of its own. This
+  // uses a free Firebase Realtime Database as the shared vote store instead.
+  // See the setup steps in the accompanying instructions. Leave the trailing
+  // slash off the URL.
+  var FIREBASE_URL = "https://luton-dce-ptt-demo-default-rtdb.europe-west1.firebasedatabase.app/";
+  var SESSION_PATH = "luton_screening_demo_session"; // change this to something unguessable if you want a little obscurity, since Firebase rules for this demo are wide open
+
+  var currentView = "attendee";
+  var presenterUnlocked = false;
+  var participantId = "p_" + Math.random().toString(36).slice(2,9);
+  var lastRenderKey = "";
+
+  /* ---------------- CONTENT: DCE (bowel screening) ---------------- */
+  /* With 5 binary attributes a full factorial would need 32 profiles, too
+     many for a live room. Instead this uses a resolution III fractional
+     factorial (8 runs, generators D=A^B, E=A^C), the standard way to keep a
+     DCE demo short while still letting every attribute vary independently
+     enough to estimate its own main effect. The trade-off, standard for
+     resolution III designs, is that a main effect can be aliased with a
+     two-way interaction between other attributes, so this is a good main-
+     effects proxy but not a substitute for a full design if interactions
+     between features are themselves of interest. Each run is paired against
+     its complete opposite, and which side (left/right) holds the base
+     profile alternates set to set to balance position. */
+
+  var DCE_ATTRS = {
+    outreach: {
+      name: "Awareness channel",
+      levels: ["NHS/GP letter only, no other outreach", "NHS/GP letter, plus hearing about it from a Macmillan Cancer Connector at a local community event"]
+    },
+    followup: {
+      name: "Follow-up if kit not returned",
+      levels: ["No further contact", "A follow-up phone call from a care coordinator"]
+    },
+    schedule: {
+      name: "Screening schedule",
+      levels: ["Standard: everyone tested every 2 years", "Risk-stratified: you're told your personal risk level, but may test more often, or for longer into older age, if your risk is higher"]
+    },
+    dropoff: {
+      name: "Returning the kit",
+      levels: ["Post only", "Post, or drop off at a local pharmacy or community hub"]
+    },
+    reminders: {
+      name: "Number of reminders",
+      levels: ["A single reminder", "Up to two reminders"]
+    }
+  };
+  var ATTR_KEYS = ["outreach","followup","schedule","dropoff","reminders"];
+
+  function complement(p){ var c = {}; ATTR_KEYS.forEach(function(k){ c[k] = 1-p[k]; }); return c; }
+
+  // 2^(5-2) resolution III fractional factorial: outreach/followup/schedule
+  // run the full 2^3, dropoff = outreach^followup, reminders = outreach^schedule
+  var DCE_BASES = [
+    {outreach:0, followup:0, schedule:0, dropoff:0, reminders:0},
+    {outreach:0, followup:0, schedule:1, dropoff:0, reminders:1},
+    {outreach:0, followup:1, schedule:0, dropoff:1, reminders:0},
+    {outreach:0, followup:1, schedule:1, dropoff:1, reminders:1},
+    {outreach:1, followup:0, schedule:0, dropoff:1, reminders:1},
+    {outreach:1, followup:0, schedule:1, dropoff:1, reminders:0},
+    {outreach:1, followup:1, schedule:0, dropoff:0, reminders:1},
+    {outreach:1, followup:1, schedule:1, dropoff:0, reminders:0}
+  ];
+  var DCE_SETS = [];
+  DCE_BASES.forEach(function(base, i){
+    var comp = complement(base);
+    if(i % 2 === 0){ DCE_SETS.push({left: base, right: comp}); }
+    else { DCE_SETS.push({left: comp, right: base}); }
+  });
+
+  function profileLines(p){ return ATTR_KEYS.map(function(k){ return DCE_ATTRS[k].levels[p[k]]; }); }
+
+
+  /* ---------------- CONTENT: PTT (breast screening) ---------------- */
+
+  var PTT_LEVELS = [
+    {label: "15 minutes, no changes, direct bus"},
+    {label: "25 minutes, 1 change"},
+    {label: "40 minutes, 1 change"},
+    {label: "40 minutes, 2 changes"},
+    {label: "55 minutes, 2 changes"},
+    {label: "55 minutes, 2 changes, plus a 10 minute walk"},
+    {label: "75 minutes, 2 changes, plus a 10 minute walk"}
+  ];
+
+  /* ---------------- SESSION STATE ---------------- */
+
+  function defaultSession(){
+    return {
+      mode: "menu",
+      joinUrl: "",
+      dce: {setIndex: 0, stage: "active", responses: []},
+      ptt: {levelIndex: 0, stage: "active", responses: [], log: []}
+    };
+  }
+
+  function normalize(s){
+    var d = defaultSession();
+    if(!s || typeof s !== "object") return d;
+    s.mode = s.mode || d.mode;
+    s.joinUrl = typeof s.joinUrl === "string" ? s.joinUrl : "";
+    s.dce = s.dce || {}; s.ptt = s.ptt || {};
+    s.dce.setIndex = typeof s.dce.setIndex === "number" ? s.dce.setIndex : 0;
+    s.dce.stage = s.dce.stage || "active";
+    s.dce.responses = Array.isArray(s.dce.responses) ? s.dce.responses : [];
+    s.ptt.levelIndex = typeof s.ptt.levelIndex === "number" ? s.ptt.levelIndex : 0;
+    s.ptt.stage = s.ptt.stage || "active";
+    s.ptt.responses = Array.isArray(s.ptt.responses) ? s.ptt.responses : [];
+    s.ptt.log = Array.isArray(s.ptt.log) ? s.ptt.log : [];
+    return s;
+  }
+
+  async function getSession(){
+    try{
+      var res = await fetch(FIREBASE_URL + "/" + SESSION_PATH + ".json");
+      var data = await res.json();
+      if(data){ return normalize(data); }
+      return defaultSession();
+    }catch(e){ console.error("get failed", e); return defaultSession(); }
+  }
+  async function setSession(s){
+    try{
+      await fetch(FIREBASE_URL + "/" + SESSION_PATH + ".json", {
+        method: "PUT",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(s)
+      });
+    }catch(e){ console.error("set failed", e); }
+    return s;
+  }
+
+  function pct(a,b){ var t=a+b; if(t===0) return {a:50,b:50}; return {a:Math.round((a/t)*100), b:Math.round((b/t)*100)}; }
+
+  function dceCounts(session, setIndex){
+    var left=0,right=0;
+    session.dce.responses.forEach(function(r){ if(r.setIndex===setIndex){ if(r.side==="left") left++; else right++; } });
+    return {left:left,right:right};
+  }
+  function dceAttributeSummary(session){
+    var out = {};
+    ATTR_KEYS.forEach(function(k){ out[k] = {level0:0, level1:0}; });
+    session.dce.responses.forEach(function(r){
+      ATTR_KEYS.forEach(function(k){
+        var val = r.chosenProfile[k];
+        if(val === 0) out[k].level0++; else out[k].level1++;
+      });
+    });
+    return out;
+  }
+  function pttCounts(session, levelIndex){
+    var y=0,n=0;
+    session.ptt.responses.forEach(function(r){ if(r.levelIndex===levelIndex){ if(r.choice==="yes") y++; else n++; } });
+    return {y:y,n:n};
+  }
+
+  /* ---------------- STATS: hand-rolled logistic regression for the DCE ---------------- */
+  /* Small, dependency-free Newton-Raphson (IRLS) logistic regression. With
+     only 6 parameters (intercept + 5 attributes) and a few hundred rows at
+     most, this converges in a handful of iterations, no external stats
+     library needed. */
+
+  function dot(a,b){ var s=0; for(var i=0;i<a.length;i++){ s += a[i]*b[i]; } return s; }
+  function zerosMat(n,m){ var out=[]; for(var i=0;i<n;i++){ out.push(new Array(m).fill(0)); } return out; }
+  function solveLinearSystem(Ain, bin){
+    var n = bin.length;
+    var A = Ain.map(function(row){ return row.slice(); });
+    var b = bin.slice();
+    for(var col=0; col<n; col++){
+      var pivot = col;
+      for(var r=col+1; r<n; r++){ if(Math.abs(A[r][col]) > Math.abs(A[pivot][col])) pivot = r; }
+      var tmpRow = A[col]; A[col]=A[pivot]; A[pivot]=tmpRow;
+      var tmpB = b[col]; b[col]=b[pivot]; b[pivot]=tmpB;
+      if(Math.abs(A[col][col]) < 1e-10){ continue; }
+      for(var r2=col+1; r2<n; r2++){
+        var factor = A[r2][col]/A[col][col];
+        for(var c=col;c<n;c++){ A[r2][c] -= factor*A[col][c]; }
+        b[r2] -= factor*b[col];
+      }
+    }
+    var x = new Array(n).fill(0);
+    for(var i=n-1;i>=0;i--){
+      var s = b[i];
+      for(var j=i+1;j<n;j++){ s -= A[i][j]*x[j]; }
+      x[i] = Math.abs(A[i][i])<1e-10 ? 0 : s/A[i][i];
+    }
+    return x;
+  }
+  function invertMatrix(A){
+    var n = A.length;
+    var inv = zerosMat(n,n);
+    for(var col=0; col<n; col++){
+      var e = new Array(n).fill(0); e[col]=1;
+      var x = solveLinearSystem(A, e);
+      for(var row=0; row<n; row++){ inv[row][col] = x[row]; }
+    }
+    return inv;
+  }
+  function fitLogit(X, y, maxIter, tol){
+    var n = X.length, p = X[0].length;
+    var beta = new Array(p).fill(0);
+    for(var iter=0; iter<maxIter; iter++){
+      var pHat = X.map(function(row){ return 1/(1+Math.exp(-dot(row,beta))); });
+      var W = pHat.map(function(pi){ return Math.max(pi*(1-pi), 1e-6); });
+      var grad = new Array(p).fill(0);
+      var XtWX = zerosMat(p,p);
+      for(var i=0;i<n;i++){
+        for(var j=0;j<p;j++){
+          grad[j] += X[i][j]*(y[i]-pHat[i]);
+          for(var k=0;k<p;k++){ XtWX[j][k] += X[i][j]*W[i]*X[i][k]; }
+        }
+      }
+      var delta = solveLinearSystem(XtWX, grad);
+      var maxDelta = 0;
+      for(var j2=0;j2<p;j2++){ beta[j2] += delta[j2]; maxDelta = Math.max(maxDelta, Math.abs(delta[j2])); }
+      if(maxDelta < tol){ break; }
+    }
+    var pFinal = X.map(function(row){ return 1/(1+Math.exp(-dot(row,beta))); });
+    var WFinal = pFinal.map(function(pi){ return Math.max(pi*(1-pi), 1e-6); });
+    var XtWXFinal = zerosMat(p,p);
+    for(var i2=0;i2<n;i2++){ for(var j3=0;j3<p;j3++){ for(var k2=0;k2<p;k2++){ XtWXFinal[j3][k2] += X[i2][j3]*WFinal[i2]*X[i2][k2]; } } }
+    var cov = invertMatrix(XtWXFinal);
+    var se = beta.map(function(_, j4){ return Math.sqrt(Math.max(cov[j4][j4], 0)); });
+    return {beta:beta, se:se};
+  }
+  function erf(x){
+    var sign = x<0 ? -1 : 1; x = Math.abs(x);
+    var a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,pp=0.3275911;
+    var t = 1/(1+pp*x);
+    var yv = 1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-x*x);
+    return sign*yv;
+  }
+  function normalCdf(z){ return 0.5*(1+erf(z/Math.sqrt(2))); }
+
+  function computeDceLogit(session){
+    var responses = session.dce.responses;
+    if(responses.length < 10){ return null; }
+    var X = [], y = [];
+    responses.forEach(function(r){
+      var leftProfile = r.side === "left" ? r.chosenProfile : r.notChosenProfile;
+      var rightProfile = r.side === "left" ? r.notChosenProfile : r.chosenProfile;
+      var row = [1];
+      ATTR_KEYS.forEach(function(k){ row.push(leftProfile[k]-rightProfile[k]); });
+      X.push(row);
+      y.push(r.side === "left" ? 1 : 0);
+    });
+    var fit = fitLogit(X, y, 50, 1e-6);
+    var attributes = ATTR_KEYS.map(function(k, idx){
+      var j = idx+1;
+      var beta = fit.beta[j], se = fit.se[j];
+      var z = se>0 ? beta/se : 0;
+      var p = 2*(1-normalCdf(Math.abs(z)));
+      return {key:k, name:DCE_ATTRS[k].name, beta:beta, se:se, z:z, p:p, oddsRatio:Math.exp(beta*2)};
+    });
+    return {intercept:fit.beta[0], attributes:attributes, n:responses.length};
+  }
+
+  /* ---------------- STATS: per-participant PTT threshold + CI ---------------- */
+  /* Uses each participant's own answers across levels (tracked via
+     participantId) to find their personal switch point, then averages
+     across everyone. Participants who never said no (still willing at the
+     hardest level shown) or never said yes are censored and excluded from
+     the mean, same idea flagged in the original methods discussion about
+     needing a Tobit-style model to handle this properly; this is a
+     simplified live approximation of that. */
+
+  function computePttThresholdStats(session){
+    var byParticipant = {};
+    session.ptt.responses.forEach(function(r){
+      byParticipant[r.participantId] = byParticipant[r.participantId] || {};
+      byParticipant[r.participantId][r.levelIndex] = r.choice;
+    });
+    var thresholds = [], censoredYes=0, censoredNo=0, inconsistent=0;
+    Object.keys(byParticipant).forEach(function(pid){
+      var answers = byParticipant[pid];
+      var levels = Object.keys(answers).map(Number);
+      var yesLevels = levels.filter(function(l){ return answers[l]==="yes"; });
+      var noLevels = levels.filter(function(l){ return answers[l]==="no"; });
+      if(noLevels.length===0){ censoredYes++; return; }
+      if(yesLevels.length===0){ censoredNo++; return; }
+      var maxYes = Math.max.apply(null, yesLevels);
+      var minNo = Math.min.apply(null, noLevels);
+      if(maxYes < minNo){ thresholds.push((maxYes+minNo)/2); }
+      else { inconsistent++; }
+    });
+    if(thresholds.length===0){ return {n:0, censoredYes:censoredYes, censoredNo:censoredNo, inconsistent:inconsistent}; }
+    var mean = thresholds.reduce(function(a,b){return a+b;},0)/thresholds.length;
+    var variance = thresholds.reduce(function(a,b){return a+Math.pow(b-mean,2);},0)/Math.max(thresholds.length-1,1);
+    var se = Math.sqrt(variance)/Math.sqrt(thresholds.length);
+    var ciLow = mean-1.96*se, ciHigh = mean+1.96*se;
+    function labelAt(x){
+      var xc = Math.max(0, Math.min(PTT_LEVELS.length-1, x));
+      var lo = Math.floor(xc), hi = Math.ceil(xc);
+      return lo===hi ? PTT_LEVELS[lo].label : (PTT_LEVELS[lo].label + " to " + PTT_LEVELS[hi].label);
+    }
+    return {n:thresholds.length, mean:mean, se:se, ciLow:ciLow, ciHigh:ciHigh, meanLabel:labelAt(mean), ciLowLabel:labelAt(ciLow), ciHighLabel:labelAt(ciHigh), censoredYes:censoredYes, censoredNo:censoredNo, inconsistent:inconsistent};
+  }
+
+  function stackedBar(leftLabel, leftPct, leftN, rightLabel, rightPct, rightN, leftColor, rightColor){
+    var h = '<div class="stacked-row"><div class="stacked-caption"><span><b>'+leftLabel+'</b> '+leftPct+'% (n='+leftN+')</span><span><b>'+rightLabel+'</b> '+rightPct+'% (n='+rightN+')</span></div>';
+    h += '<div class="stacked-track"><div class="stacked-seg '+leftColor+'" style="width:'+leftPct+'%"></div><div class="stacked-seg '+rightColor+'" style="width:'+rightPct+'%"></div></div></div>';
+    return h;
+  }
+
+  /* ---------------- ATTENDEE VIEW ---------------- */
+
+  var pendingChoice = null;
+  var lastVotedDceSet = -1;
+  var lastVotedPttLevel = -1;
+
+  function renderAttendee(session){
+    var app = document.getElementById("app");
+    var html = '<div class="wrap"><header class="top"><div>';
+    html += '<div class="eyebrow">Luton Public Health &middot; Live session</div><h1>What would you choose?</h1></div>';
+    html += '<span class="badge">Attendee view</span></header>';
+    html += viewToggleHTML();
+
+    if(session.mode === "menu"){
+      html += '<div class="clipboard"><p class="lede">Waiting for the facilitator to start a demo. Keep this page open, it will update on its own.</p></div>';
+    } else if(session.mode === "dce"){
+      html += dceMethodNote();
+      if(session.dce.stage === "results"){
+        html += dceResultsHTML(session);
+      } else {
+        var set = DCE_SETS[session.dce.setIndex];
+        var voted = lastVotedDceSet === session.dce.setIndex;
+        var sel = voted ? null : pendingChoice;
+        html += '<div class="clipboard">';
+        html += '<div class="eyebrow">Choice '+(session.dce.setIndex+1)+' of '+DCE_SETS.length+' &middot; bowel screening service design</div>';
+        html += '<h2>Which service would get you to complete your screening?</h2>';
+        html += '<div class="reference-box"><b>For context:</b> today, most people get a bowel screening kit posted with a standard letter, no follow-up call if it\'s not returned, and the same national testing schedule regardless of personal risk. The two options below may differ from this in one or more ways.</div>';
+        html += '<div class="options">';
+        html += optionCard("one", profileLines(set.left), voted, sel);
+        html += optionCard("two", profileLines(set.right), voted, sel);
+        html += '</div>';
+        html += '<div class="submit-row">';
+        if(voted){ html += '<span class="lede">Thanks, your answer is counted.</span>'; }
+        else{ html += '<button class="submit-btn" '+(pendingChoice?'':'disabled')+' onclick="window.__submitVote(\'dce\')">Submit answer</button>'; }
+        html += '</div></div>';
+      }
+    } else if(session.mode === "ptt"){
+      html += pttMethodNote();
+      if(session.ptt.stage === "results"){
+        html += pttResultsHTML(session);
+      } else {
+        var lvl = PTT_LEVELS[session.ptt.levelIndex];
+        var votedP = lastVotedPttLevel === session.ptt.levelIndex;
+        var selP = votedP ? null : pendingChoice;
+        html += '<div class="clipboard">';
+        html += '<div class="reference-box"><b>Your standard position:</b> you are a woman at average risk of breast cancer, invited for your routine mammogram at a mobile breast screening unit.</div>';
+        html += '<h2>Getting to the mobile unit by public transport takes:</h2>';
+        html += '<p class="lede" style="font-size:18px; color:var(--ink);"><b>'+lvl.label+'</b></p>';
+        html += '<div class="risk-card"><div class="eyebrow">Would you still go to your appointment?</div>';
+        html += '<div class="yn">';
+        html += '<button class="yes'+(votedP?' disabled':'')+(selP==="yes"?' selected':'')+'" '+(votedP?'disabled':'')+' onclick="window.__selectChoice(\'yes\')">Yes, I would</button>';
+        html += '<button class="no'+(votedP?' disabled':'')+(selP==="no"?' selected':'')+'" '+(votedP?'disabled':'')+' onclick="window.__selectChoice(\'no\')">No, I would not</button>';
+        html += '</div></div>';
+        html += '<div class="submit-row">';
+        if(votedP){ html += '<span class="lede">Thanks, your answer is counted.</span>'; }
+        else{ html += '<button class="submit-btn" '+(pendingChoice?'':'disabled')+' onclick="window.__submitVote(\'ptt\')">Submit answer</button>'; }
+        html += '</div></div>';
+      }
+    }
+
+    html += '<div class="disclaimer">Illustrative scenario built for teaching purposes. It does not describe a real Luton Council or NHS service.</div></div>';
+    app.innerHTML = html;
+    renderQR(session);
+  }
+
+  function optionCard(side, lines, voted, sel){
+    var isSel = sel === side;
+    var cls = 'option '+side+(voted?' disabled':'')+(isSel?' selected':'');
+    var num = side === "one" ? "1" : "2";
+    var h = '<button class="'+cls+'" '+(voted?'disabled':'')+' onclick="window.__selectChoice(\''+side+'\')">';
+    h += '<span class="opt-label">Option '+num+'</span>';
+    lines.forEach(function(l){ h += '<span class="opt-line">'+l+'</span>'; });
+    h += '</button>';
+    return h;
+  }
+
+  window.__selectChoice = function(choice){ pendingChoice = choice; tick(true); };
+
+  window.__submitVote = async function(kind){
+    if(!pendingChoice) return;
+    var s = await getSession();
+    if(kind === "dce"){
+      if(lastVotedDceSet === s.dce.setIndex) return;
+      lastVotedDceSet = s.dce.setIndex;
+      var set = DCE_SETS[s.dce.setIndex];
+      var side = pendingChoice; // "one" or "two"
+      var chosenProfile = side === "one" ? set.left : set.right;
+      var notChosenProfile = side === "one" ? set.right : set.left;
+      s.dce.responses.push({
+        participantId:participantId, setIndex:s.dce.setIndex, side: side==="one"?"left":"right",
+        chosenProfile:chosenProfile, notChosenProfile:notChosenProfile, ts:Date.now()
+      });
+    } else {
+      if(lastVotedPttLevel === s.ptt.levelIndex) return;
+      lastVotedPttLevel = s.ptt.levelIndex;
+      s.ptt.responses.push({participantId:participantId, levelIndex:s.ptt.levelIndex, choice:pendingChoice, ts:Date.now()});
+    }
+    pendingChoice = null;
+    await setSession(s);
+    renderAttendee(s);
+  };
+
+  function dceMethodNote(){
+    return '<div class="method-note"><h3>What a discrete choice experiment (DCE) does</h3>People repeatedly pick between two service options that differ on the same set of features. Because both options change together in a balanced way across all the choice sets, no single feature or position is favoured by the design, so the pattern of choices shows which features genuinely move people, not just which option happened to look more familiar.</div>';
+  }
+  function pttMethodNote(){
+    return '<div class="method-note"><h3>What a preference/threshold technique (PTT) does</h3>People are asked the same accept-or-not question at a series of increasing levels of a single factor. Where answers flip from mostly yes to mostly no marks the point most people find acceptable, their threshold.</div>';
+  }
+
+  function dceResultsHTML(session){
+    var h = '<div class="clipboard"><h2>Bowel screening DCE: group results so far</h2>';
+    h += '<p class="lede">Because every set pairs a profile against its complete opposite, each vote directly tells us whether the room preferred the alternative or the more standard level of every feature at once.</p>';
+    var summary = dceAttributeSummary(session);
+    ATTR_KEYS.forEach(function(k){
+      var a = DCE_ATTRS[k]; var c = summary[k]; var p = pct(c.level0, c.level1);
+      h += '<p class="lede" style="font-weight:600; color:var(--ink); margin-bottom:4px;">'+a.name+'</p>';
+      h += stackedBar(a.levels[0], p.a, c.level0, a.levels[1], p.b, c.level1, "teal", "amber");
+    });
+    var totalVotes = session.dce.responses.length;
+    h += '<div class="totalcount">'+totalVotes+' total votes across '+DCE_SETS.length+' choice sets</div>';
+
+    h += '<h2 style="margin-top:22px; font-size:16px;">Estimated feature effects (logistic regression)</h2>';
+    var reg = computeDceLogit(session);
+    if(!reg){
+      h += '<p class="lede">Need at least 10 votes before the regression will run, '+totalVotes+' so far.</p>';
+    } else {
+      h += '<p class="lede">Each feature\'s own effect on the chance of being chosen, from a binary logistic regression on the individual votes (n='+reg.n+'). Bars right of centre (teal) mean the alternative level made people more likely to choose that option, bars left (brick) mean the more standard level was preferred.</p>';
+      var maxAbs = Math.max.apply(null, reg.attributes.map(function(r){ return Math.abs(r.beta); })) || 1;
+      reg.attributes.forEach(function(r){
+        var stars = r.p<0.001 ? "***" : r.p<0.01 ? "**" : r.p<0.05 ? "*" : "n.s.";
+        var widthPct = Math.min(45, Math.abs(r.beta)/maxAbs*45);
+        var side = r.beta >= 0 ? "pos" : "neg";
+        h += '<div class="diverge-row"><div class="diverge-label"><span>'+r.name+'</span><span class="num">odds ratio '+r.oddsRatio.toFixed(2)+' '+stars+'</span></div>';
+        h += '<div class="diverge-track"><div class="diverge-fill '+side+'" style="width:'+widthPct+'%"></div></div></div>';
+      });
+      h += '<p class="lede" style="font-size:12.5px;">* p&lt;.05, ** p&lt;.01, *** p&lt;.001, n.s. = not significant at these sample sizes. With a resolution III design, treat this as indicative rather than definitive, a main effect here can be partly aliased with a two-way interaction between two of the other features.</p>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  function pttResultsHTML(session){
+    var h = '<div class="clipboard"><h2>Breast screening PTT: group results so far</h2>';
+    var rows = [];
+    PTT_LEVELS.forEach(function(lvl, i){
+      var c = pttCounts(session, i);
+      if(c.y+c.n === 0) return;
+      var p = pct(c.y, c.n);
+      rows.push({label:lvl.label, yes:p.a, no:p.b, yN:c.y, nN:c.n});
+    });
+    rows.forEach(function(r){
+      h += '<p class="lede" style="font-weight:600; color:var(--ink); margin-bottom:4px;">'+r.label+'</p>';
+      h += stackedBar("Yes", r.yes, r.yN, "No", r.no, r.nN, "teal", "brick");
+    });
+    var flip = null;
+    for(var i=0;i<rows.length-1;i++){
+      if(rows[i].yes >= 50 && rows[i+1].yes < 50){ flip = "Between \u201c"+rows[i].label+"\u201d and \u201c"+rows[i+1].label+"\u201d the room flipped from majority yes to majority no."; break; }
+    }
+    if(flip){ h += '<div class="threshold-flag">'+flip+'</div>'; }
+
+    h += '<h2 style="margin-top:22px; font-size:16px;">Estimated mean maximum acceptable threshold</h2>';
+    var stats = computePttThresholdStats(session);
+    if(!stats || stats.n===0){
+      h += '<p class="lede">Not enough participants have given both a yes and a no yet to estimate a personal threshold.'+(stats?(' So far: '+stats.censoredYes+' have only said yes, '+stats.censoredNo+' have only said no, '+stats.inconsistent+' gave inconsistent answers across levels.'):'')+'</p>';
+    } else {
+      h += '<p class="lede">For each participant with at least one yes and one no, their personal threshold is the midpoint between their last yes and first no. Averaged across '+stats.n+' participants: mean threshold around <b>'+stats.meanLabel+'</b> (95% CI: '+stats.ciLowLabel+' to '+stats.ciHighLabel+').</p>';
+      h += '<p class="lede" style="font-size:12.5px;">Excluded from this estimate: '+stats.censoredYes+' still willing at the hardest level shown (right-censored), '+stats.censoredNo+' unwilling even at the easiest level shown (left-censored), and '+stats.inconsistent+' with non-monotonic answers. A full analysis would use interval regression (Tobit-style) to include the censored cases properly rather than dropping them, this is a simplified live approximation of that.</p>';
+    }
+    h += '</div>';
+    return h;
+  }
+
+  /* ---------------- PRESENTER VIEW ---------------- */
+
+  async function switchMode(m){
+    var s = await getSession(); s.mode = m;
+    await setSession(s); renderPresenter(s);
+  }
+
+  window.__dceNav = async function(dir){
+    var s = await getSession();
+    var next = s.dce.setIndex + dir;
+    if(next < 0 || next > DCE_SETS.length-1) return;
+    s.dce.setIndex = next;
+    await setSession(s); renderPresenter(s);
+  };
+  window.__dceShowResults = async function(show){
+    var s = await getSession(); s.dce.stage = show ? "results" : "active";
+    await setSession(s); renderPresenter(s);
+  };
+
+  window.__pttStep = async function(dir){
+    var s = await getSession();
+    var c = pttCounts(s, s.ptt.levelIndex);
+    var p = pct(c.y, c.n);
+    s.ptt.log.push({level: PTT_LEVELS[s.ptt.levelIndex].label, yesPct: p.a, n: c.y+c.n});
+    var next = s.ptt.levelIndex + dir;
+    if(next < 0 || next > PTT_LEVELS.length-1) return;
+    s.ptt.levelIndex = next;
+    await setSession(s); renderPresenter(s);
+  };
+  window.__pttShowResults = async function(show){
+    var s = await getSession(); s.ptt.stage = show ? "results" : "active";
+    await setSession(s); renderPresenter(s);
+  };
+
+  window.__resetCurrent = async function(){
+    var s = await getSession();
+    if(s.mode === "dce"){ s.dce = {setIndex:0, stage:"active", responses:[]}; }
+    if(s.mode === "ptt"){ s.ptt = {levelIndex:0, stage:"active", responses:[], log:[]}; }
+    await setSession(s); renderPresenter(s);
+  };
+  window.__resetAll = async function(){
+    var s = defaultSession();
+    await setSession(s); renderPresenter(s);
+  };
+  window.__saveJoinUrl = async function(){
+    var input = document.getElementById("joinUrlInput");
+    if(!input) return;
+    var s = await getSession(); s.joinUrl = input.value.trim();
+    await setSession(s); renderPresenter(s);
+  };
+  window.editJoinUrlUI = async function(){
+    var s = await getSession(); s.joinUrl = "";
+    await setSession(s); renderPresenter(s);
+  };
+
+  function renderPresenter(session){
+    var app = document.getElementById("app");
+    var html = '<div class="wrap presenter"><header class="top"><div>';
+    html += '<div class="eyebrow">Luton Public Health &middot; Live session</div><h1>Preference &amp; threshold demo, presenter view</h1></div>';
+    html += '<span class="badge">Presenter view</span></header>';
+    html += viewToggleHTML();
+
+    html += '<div class="mode-tabs">';
+    ["menu","dce","ptt"].forEach(function(m){
+      var label = m === "menu" ? "Menu" : (m === "dce" ? "DCE demo" : "PTT demo");
+      html += '<button class="'+(session.mode===m?'active':'')+'" onclick="switchModeUI(\''+m+'\')">'+label+'</button>';
+    });
+    html += '</div>';
+
+    html += '<div class="presenter-grid"><div class="panel">';
+
+    if(session.mode === "menu"){
+      html += '<h2>Choose a demo to begin</h2><p class="lede">Attendee screens switch automatically once you pick one.</p>';
+    } else if(session.mode === "dce"){
+      if(session.dce.stage === "results"){
+        html += dceResultsHTML(session);
+        html += '<div class="ctrl-row"><button class="btn primary" onclick="window.__dceShowResults(false)">Back to questions</button></div>';
+      } else {
+        var set = DCE_SETS[session.dce.setIndex];
+        var c = dceCounts(session, session.dce.setIndex);
+        var p = pct(c.left, c.right);
+        html += '<h2>Choice '+(session.dce.setIndex+1)+' of '+DCE_SETS.length+'</h2>';
+        html += barRow("Option 1", profileLines(set.left).join(" / "), p.a, c.left, "teal");
+        html += barRow("Option 2", profileLines(set.right).join(" / "), p.b, c.right, "amber");
+        html += '<div class="totalcount">'+(c.left+c.right)+' votes so far</div>';
+        html += '<div class="ctrl-row">';
+        html += '<button class="btn" onclick="dceNavUI(-1)" '+(session.dce.setIndex===0?'disabled':'')+'>&larr; Previous</button>';
+        if(session.dce.setIndex === DCE_SETS.length-1){
+          html += '<button class="btn primary" onclick="window.__dceShowResults(true)">Show overall results &rarr;</button>';
+        } else {
+          html += '<button class="btn primary" onclick="dceNavUI(1)">Next choice &rarr;</button>';
+        }
+        html += '<button class="btn small" onclick="window.__dceShowResults(true)">View results so far</button>';
+        html += '<button class="btn small ghost" onclick="resetCurrentUI()">Reset this demo</button>';
+        html += '</div>';
+      }
+    } else if(session.mode === "ptt"){
+      if(session.ptt.stage === "results"){
+        html += pttResultsHTML(session);
+        html += '<div class="ctrl-row"><button class="btn primary" onclick="window.__pttShowResults(false)">Back to questions</button></div>';
+      } else {
+        var lvl = PTT_LEVELS[session.ptt.levelIndex];
+        var cp = pttCounts(session, session.ptt.levelIndex);
+        var pp = pct(cp.y, cp.n);
+        html += '<h2>Journey to the mobile breast screening unit</h2>';
+        html += '<p class="lede">Current level: <b>'+lvl.label+'</b></p>';
+        html += barRow("Yes, I would go", "", pp.a, cp.y, "teal");
+        html += barRow("No, I would not", "", pp.b, cp.n, "brick");
+        html += '<div class="totalcount">'+(cp.y+cp.n)+' votes at this level</div>';
+        html += '<div class="ctrl-row">';
+        html += '<button class="btn" onclick="pttStepUI(-1)" '+(session.ptt.levelIndex===0?'disabled':'')+'>&larr; Easier journey</button>';
+        html += '<button class="btn primary" onclick="pttStepUI(1)" '+(session.ptt.levelIndex===PTT_LEVELS.length-1?'disabled':'')+'>Harder journey &rarr;</button>';
+        html += '<button class="btn small" onclick="window.__pttShowResults(true)">View results so far</button>';
+        html += '<button class="btn small ghost" onclick="resetCurrentUI()">Reset this demo</button>';
+        html += '</div>';
+        if(session.ptt.log.length){
+          html += '<h2 style="margin-top:20px; font-size:15px;">Levels visited</h2><ul class="log-list">';
+          session.ptt.log.forEach(function(l){ html += '<li><span>'+l.level+'</span><span>'+l.yesPct+'% yes (n='+l.n+')</span></li>'; });
+          html += '</ul>';
+        }
+      }
+    }
+    html += '</div>';
+
+    html += '<div class="panel join-box">';
+    html += '<h2 style="text-align:left;">Join the room</h2>';
+    if(session.joinUrl){
+      html += '<div id="qrcode-container"></div>';
+      html += '<div class="join-url">'+session.joinUrl+'</div>';
+      html += '<div class="ctrl-row" style="justify-content:center; margin-top:10px;"><button class="btn small" onclick="editJoinUrlUI()">Edit link</button></div>';
+    } else {
+      html += '<p class="lede" style="text-align:left;">Paste the link you published this session at, to generate a QR code for attendees.</p>';
+      html += '<input id="joinUrlInput" type="url" placeholder="https://claude.ai/public/artifacts/..." style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--line); font-family:inherit; font-size:13px; margin-bottom:10px;">';
+      html += '<button class="btn primary" onclick="saveJoinUrlUI()">Generate QR code</button>';
+    }
+    html += '<div class="ctrl-row" style="justify-content:center; margin-top:16px; flex-direction:column;">';
+    html += '<button class="btn small" onclick="downloadResultsUI()">Download results (.xlsx)</button>';
+    html += '<button class="btn ghost small" onclick="resetAllUI()">Reset entire session</button>';
+    html += '</div></div>';
+
+    html += '</div>';
+    html += '<div class="disclaimer">Illustrative scenario built for teaching purposes. It does not describe a real Luton Council or NHS service.</div></div>';
+    app.innerHTML = html;
+    renderQR(session);
+  }
+
+  function barRow(label, sub, percent, count, color){
+    var h = '<div class="bar-row"><div class="lbl"><span>'+label+(sub?' &middot; <span style="color:var(--ink-soft); font-weight:400;">'+sub+'</span>':'')+'</span><b class="num">'+percent+'% ('+count+')</b></div>';
+    h += '<div class="bar-track"><div class="bar-fill '+color+'" style="width:'+percent+'%"></div></div></div>';
+    return h;
+  }
+
+  function renderQR(session){
+    var el = document.getElementById("qrcode-container");
+    if(!el || !session.joinUrl) return;
+    try{ el.innerHTML = ""; new QRCode(el, {text: session.joinUrl, width:172, height:172, correctLevel: QRCode.CorrectLevel.M}); }
+    catch(e){ el.innerHTML = '<p class="lede">QR code unavailable, use the link above.</p>'; }
+  }
+
+  function viewToggleHTML(){
+    if(currentView === "presenter"){ return '<div class="view-toggle"><button class="btn small" onclick="toggleViewUI()">Switch to attendee view</button></div>'; }
+    return '<div class="view-toggle"><button class="btn small" onclick="requestPresenterUI()">Open presenter view</button></div>';
+  }
+
+  window.requestPresenterUI = function(){
+    if(presenterUnlocked){ currentView = "presenter"; tick(true); return; }
+    var app = document.getElementById("app");
+    app.innerHTML = '<div class="gate-box"><h2>Presenter view</h2><p class="lede">Type "enter" to confirm you meant to open the presenter controls.</p>'
+      + '<input id="gateInput" type="text" autocomplete="off"><div class="gate-error" id="gateError"></div>'
+      + '<button class="btn primary" onclick="checkGateUI()">Continue</button> '
+      + '<button class="btn" onclick="cancelGateUI()">Cancel</button></div>';
+    var inp = document.getElementById("gateInput");
+    if(inp){ inp.focus(); inp.addEventListener("keydown", function(e){ if(e.key==="Enter"){ window.checkGateUI(); } }); }
+  };
+  window.checkGateUI = function(){
+    var inp = document.getElementById("gateInput");
+    if(inp && inp.value.trim().toLowerCase() === "enter"){ presenterUnlocked = true; currentView = "presenter"; tick(true); }
+    else { var err = document.getElementById("gateError"); if(err) err.textContent = "Not quite, try again."; }
+  };
+  window.cancelGateUI = function(){ currentView = "attendee"; tick(true); };
+  window.toggleViewUI = function(){ currentView = "attendee"; tick(true); };
+
+  window.switchModeUI = function(m){ switchMode(m); };
+  window.dceNavUI = function(d){ window.__dceNav(d); };
+  window.pttStepUI = function(d){ window.__pttStep(d); };
+  window.resetCurrentUI = function(){ window.__resetCurrent(); };
+  window.resetAllUI = function(){ window.__resetAll(); };
+  window.saveJoinUrlUI = function(){ window.__saveJoinUrl(); };
+
+  window.downloadResultsUI = async function(){
+    var s = await getSession();
+    var wb = XLSX.utils.book_new();
+
+    var dceKey = DCE_SETS.map(function(set,i){
+      return {ChoiceSet:i+1, "Option 1":profileLines(set.left).join(" | "), "Option 2":profileLines(set.right).join(" | ")};
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dceKey), "DCE - set key");
+
+    var dceInd = s.dce.responses.map(function(r){
+      var row = {Timestamp:new Date(r.ts).toISOString(), ParticipantID:r.participantId, ChoiceSet:r.setIndex+1, ChosenSide:r.side};
+      ATTR_KEYS.forEach(function(k){
+        row["Chosen_"+DCE_ATTRS[k].name.replace(/\s+/g,"_")] = DCE_ATTRS[k].levels[r.chosenProfile[k]];
+      });
+      return row;
+    });
+    var dceIndBlank = {Timestamp:"", ParticipantID:"", ChoiceSet:"", ChosenSide:""};
+    ATTR_KEYS.forEach(function(k){ dceIndBlank["Chosen_"+DCE_ATTRS[k].name.replace(/\s+/g,"_")] = ""; });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dceInd.length?dceInd:[dceIndBlank]), "DCE - individual");
+
+    var summary = dceAttributeSummary(s);
+    var dceSum = ATTR_KEYS.map(function(k){
+      var a = DCE_ATTRS[k]; var c = summary[k]; var p = pct(c.level0, c.level1);
+      return {Feature:a.name, "Level A":a.levels[0], "Level A chosen %":p.a, "Level A n":c.level0, "Level B":a.levels[1], "Level B chosen %":p.b, "Level B n":c.level1};
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dceSum), "DCE - attribute summary");
+
+    var pttKey = PTT_LEVELS.map(function(l,i){ return {Level:i+1, Journey:l.label}; });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pttKey), "PTT - level key");
+
+    var pttInd = s.ptt.responses.map(function(r){
+      return {Timestamp:new Date(r.ts).toISOString(), ParticipantID:r.participantId, Level:r.levelIndex+1, Journey:PTT_LEVELS[r.levelIndex].label, Choice:r.choice};
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pttInd.length?pttInd:[{Timestamp:"",ParticipantID:"",Level:"",Journey:"",Choice:""}]), "PTT - individual");
+
+    var pttSum = PTT_LEVELS.map(function(l,i){
+      var c = pttCounts(s,i); var p = pct(c.y,c.n);
+      return {Level:i+1, Journey:l.label, "Yes %":p.a, "Yes n":c.y, "No %":p.b, "No n":c.n};
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pttSum), "PTT - group summary");
+
+    var reg = computeDceLogit(s);
+    var regRows = reg ? reg.attributes.map(function(r){
+      return {Feature:r.name, "Coefficient (log-odds)":r.beta, "Std error":r.se, "z":r.z, "p-value":r.p, "Odds ratio (full swing)":r.oddsRatio};
+    }) : [{Feature:"Not enough votes yet (need 10+)", "Coefficient (log-odds)":"", "Std error":"", "z":"", "p-value":"", "Odds ratio (full swing)":""}];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(regRows), "DCE - regression");
+
+    var pttStats = computePttThresholdStats(s);
+    var pttStatsRows = [{
+      "Participants used": pttStats ? pttStats.n : 0,
+      "Mean threshold (level position)": pttStats && pttStats.n ? pttStats.mean : "",
+      "Mean threshold (label)": pttStats && pttStats.n ? pttStats.meanLabel : "",
+      "95% CI low": pttStats && pttStats.n ? pttStats.ciLowLabel : "",
+      "95% CI high": pttStats && pttStats.n ? pttStats.ciHighLabel : "",
+      "Right-censored (only ever yes)": pttStats ? pttStats.censoredYes : 0,
+      "Left-censored (only ever no)": pttStats ? pttStats.censoredNo : 0,
+      "Inconsistent (excluded)": pttStats ? pttStats.inconsistent : 0
+    }];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pttStatsRows), "PTT - threshold stats");
+
+    XLSX.writeFile(wb, "luton_screening_demo_results.xlsx");
+  };
+
+  /* ---------------- BOOT + POLL ---------------- */
+  async function tick(force){
+    var active = document.activeElement;
+    if(active && (active.id === "joinUrlInput" || active.id === "gateInput")){ return; }
+    var s = await getSession();
+    var key = JSON.stringify(s) + "|" + currentView + "|" + pendingChoice;
+    if(!force && key === lastRenderKey){ return; }
+    lastRenderKey = key;
+    if(currentView === "presenter"){ renderPresenter(s); } else { renderAttendee(s); }
+  }
+
+  tick(true);
+  setInterval(function(){ tick(false); }, 2000);
+
+})();
+</script>
+</body>
+</html>
