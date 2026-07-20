@@ -150,7 +150,7 @@
   // uses a free Firebase Realtime Database as the shared vote store instead.
   // See the setup steps in the accompanying instructions. Leave the trailing
   // slash off the URL.
-  var FIREBASE_URL = "https://luton-dce-ptt-demo-default-rtdb.europe-west1.firebasedatabase.app/";
+  var FIREBASE_URL = "https://luton-dce-ptt-demo-default-rtdb.europe-west1.firebasedatabase.app";
   var SESSION_PATH = "luton_screening_demo_session"; // change this to something unguessable if you want a little obscurity, since Firebase rules for this demo are wide open
 
   var currentView = "attendee";
@@ -220,16 +220,31 @@
 
 
   /* ---------------- CONTENT: PTT (breast screening) ---------------- */
+  /* Rather than an ordinal mix of minutes and number of changes (which isn't
+     really one dimension), this converts each journey into a single
+     generalised journey time (GJT), the standard transport-appraisal way to
+     combine raw time with an interchange penalty. UK guidance (Transport
+     Scotland's STAG, mirroring DfT practice) gives a penalty of roughly 3-15
+     minutes per interchange depending on its quality, a 2024 empirical study
+     of London's network found an average nearer 5 minutes. 10 minutes per
+     change is used here, a defensible, slightly cautious choice within that
+     published range rather than an invented one. */
+
+  var INTERCHANGE_PENALTY_MINUTES = 10;
 
   var PTT_LEVELS = [
-    {label: "15 minutes, no changes, direct bus"},
-    {label: "25 minutes, 1 change"},
-    {label: "40 minutes, 1 change"},
-    {label: "40 minutes, 2 changes"},
-    {label: "55 minutes, 2 changes"},
-    {label: "55 minutes, 2 changes, plus a 10 minute walk"},
-    {label: "75 minutes, 2 changes, plus a 10 minute walk"}
+    {rawTime: 15, changes: 0, walkMinutes: 0, desc: "15 minutes on the bus, no changes, direct route"},
+    {rawTime: 25, changes: 1, walkMinutes: 0, desc: "25 minutes on the bus, 1 change"},
+    {rawTime: 40, changes: 1, walkMinutes: 0, desc: "40 minutes on the bus, 1 change"},
+    {rawTime: 40, changes: 2, walkMinutes: 0, desc: "40 minutes on the bus, 2 changes"},
+    {rawTime: 55, changes: 2, walkMinutes: 0, desc: "55 minutes on the bus, 2 changes"},
+    {rawTime: 55, changes: 2, walkMinutes: 10, desc: "55 minutes on the bus, 2 changes, plus a 10 minute walk"},
+    {rawTime: 75, changes: 2, walkMinutes: 10, desc: "75 minutes on the bus, 2 changes, plus a 10 minute walk"}
   ];
+  PTT_LEVELS.forEach(function(l){
+    l.gjt = l.rawTime + l.walkMinutes + (l.changes * INTERCHANGE_PENALTY_MINUTES);
+    l.label = l.desc + " (about " + l.gjt + " minutes of generalised journey time)";
+  });
 
   /* ---------------- SESSION STATE ---------------- */
 
@@ -425,22 +440,19 @@
       var noLevels = levels.filter(function(l){ return answers[l]==="no"; });
       if(noLevels.length===0){ censoredYes++; return; }
       if(yesLevels.length===0){ censoredNo++; return; }
-      var maxYes = Math.max.apply(null, yesLevels);
-      var minNo = Math.min.apply(null, noLevels);
-      if(maxYes < minNo){ thresholds.push((maxYes+minNo)/2); }
-      else { inconsistent++; }
+      var maxYesIdx = Math.max.apply(null, yesLevels);
+      var minNoIdx = Math.min.apply(null, noLevels);
+      if(maxYesIdx < minNoIdx){
+        // threshold in minutes: midpoint between the GJT of the last "yes" and the first "no"
+        thresholds.push((PTT_LEVELS[maxYesIdx].gjt + PTT_LEVELS[minNoIdx].gjt) / 2);
+      } else { inconsistent++; }
     });
     if(thresholds.length===0){ return {n:0, censoredYes:censoredYes, censoredNo:censoredNo, inconsistent:inconsistent}; }
     var mean = thresholds.reduce(function(a,b){return a+b;},0)/thresholds.length;
     var variance = thresholds.reduce(function(a,b){return a+Math.pow(b-mean,2);},0)/Math.max(thresholds.length-1,1);
     var se = Math.sqrt(variance)/Math.sqrt(thresholds.length);
     var ciLow = mean-1.96*se, ciHigh = mean+1.96*se;
-    function labelAt(x){
-      var xc = Math.max(0, Math.min(PTT_LEVELS.length-1, x));
-      var lo = Math.floor(xc), hi = Math.ceil(xc);
-      return lo===hi ? PTT_LEVELS[lo].label : (PTT_LEVELS[lo].label + " to " + PTT_LEVELS[hi].label);
-    }
-    return {n:thresholds.length, mean:mean, se:se, ciLow:ciLow, ciHigh:ciHigh, meanLabel:labelAt(mean), ciLowLabel:labelAt(ciLow), ciHighLabel:labelAt(ciHigh), censoredYes:censoredYes, censoredNo:censoredNo, inconsistent:inconsistent};
+    return {n:thresholds.length, meanMinutes:Math.round(mean), ciLowMinutes:Math.round(ciLow), ciHighMinutes:Math.round(ciHigh), censoredYes:censoredYes, censoredNo:censoredNo, inconsistent:inconsistent};
   }
 
   function stackedBar(leftLabel, leftPct, leftN, rightLabel, rightPct, rightN, leftColor, rightColor){
@@ -494,7 +506,7 @@
         var votedP = lastVotedPttLevel === session.ptt.levelIndex;
         var selP = votedP ? null : pendingChoice;
         html += '<div class="clipboard">';
-        html += '<div class="reference-box"><b>Your standard position:</b> you are a woman at average risk of breast cancer, invited for your routine mammogram at a mobile breast screening unit.</div>';
+        html += '<div class="reference-box"><b>Your standard position:</b> you are a woman at average risk of breast cancer, invited for your routine mammogram at a mobile breast screening unit. <b>Note:</b> each bus change is treated as costing an extra '+INTERCHANGE_PENALTY_MINUTES+' minutes of perceived travel time on top of the clock time, a standard transport-appraisal convention (published UK guidance suggests roughly 3-15 minutes per change depending on the interchange), so journeys below are compared on this combined "generalised journey time" basis.</div>';
         html += '<h2>Getting to the mobile unit by public transport takes:</h2>';
         html += '<p class="lede" style="font-size:18px; color:var(--ink);"><b>'+lvl.label+'</b></p>';
         html += '<div class="risk-card"><div class="eyebrow">Would you still go to your appointment?</div>';
@@ -610,11 +622,12 @@
     if(flip){ h += '<div class="threshold-flag">'+flip+'</div>'; }
 
     h += '<h2 style="margin-top:22px; font-size:16px;">Estimated mean maximum acceptable threshold</h2>';
+    h += '<p class="lede" style="font-size:12.5px;">This calculation is done in generalised journey time (raw minutes, plus walking time, plus '+INTERCHANGE_PENALTY_MINUTES+' minutes per bus change), not in the labelled journeys above, so time and number of changes are combined into a single comparable scale rather than an assumed ranking of one against the other.</p>';
     var stats = computePttThresholdStats(session);
     if(!stats || stats.n===0){
       h += '<p class="lede">Not enough participants have given both a yes and a no yet to estimate a personal threshold.'+(stats?(' So far: '+stats.censoredYes+' have only said yes, '+stats.censoredNo+' have only said no, '+stats.inconsistent+' gave inconsistent answers across levels.'):'')+'</p>';
     } else {
-      h += '<p class="lede">For each participant with at least one yes and one no, their personal threshold is the midpoint between their last yes and first no. Averaged across '+stats.n+' participants: mean threshold around <b>'+stats.meanLabel+'</b> (95% CI: '+stats.ciLowLabel+' to '+stats.ciHighLabel+').</p>';
+      h += '<p class="lede">For each participant with at least one yes and one no, their personal threshold is the midpoint between their last yes and first no, in generalised minutes. Averaged across '+stats.n+' participants: mean threshold around <b>'+stats.meanMinutes+' minutes</b> (95% CI: '+stats.ciLowMinutes+' to '+stats.ciHighMinutes+' minutes).</p>';
       h += '<p class="lede" style="font-size:12.5px;">Excluded from this estimate: '+stats.censoredYes+' still willing at the hardest level shown (right-censored), '+stats.censoredNo+' unwilling even at the easiest level shown (left-censored), and '+stats.inconsistent+' with non-monotonic answers. A full analysis would use interval regression (Tobit-style) to include the censored cases properly rather than dropping them, this is a simplified live approximation of that.</p>';
     }
     h += '</div>';
@@ -837,7 +850,7 @@
     });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dceSum), "DCE - attribute summary");
 
-    var pttKey = PTT_LEVELS.map(function(l,i){ return {Level:i+1, Journey:l.label}; });
+    var pttKey = PTT_LEVELS.map(function(l,i){ return {Level:i+1, Journey:l.desc, "Generalised journey time (min)":l.gjt}; });
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pttKey), "PTT - level key");
 
     var pttInd = s.ptt.responses.map(function(r){
@@ -860,10 +873,10 @@
     var pttStats = computePttThresholdStats(s);
     var pttStatsRows = [{
       "Participants used": pttStats ? pttStats.n : 0,
-      "Mean threshold (level position)": pttStats && pttStats.n ? pttStats.mean : "",
-      "Mean threshold (label)": pttStats && pttStats.n ? pttStats.meanLabel : "",
-      "95% CI low": pttStats && pttStats.n ? pttStats.ciLowLabel : "",
-      "95% CI high": pttStats && pttStats.n ? pttStats.ciHighLabel : "",
+      "Mean threshold (generalised minutes)": pttStats && pttStats.n ? pttStats.meanMinutes : "",
+      "95% CI low (generalised minutes)": pttStats && pttStats.n ? pttStats.ciLowMinutes : "",
+      "95% CI high (generalised minutes)": pttStats && pttStats.n ? pttStats.ciHighMinutes : "",
+      "Interchange penalty assumed (min/change)": INTERCHANGE_PENALTY_MINUTES,
       "Right-censored (only ever yes)": pttStats ? pttStats.censoredYes : 0,
       "Left-censored (only ever no)": pttStats ? pttStats.censoredNo : 0,
       "Inconsistent (excluded)": pttStats ? pttStats.inconsistent : 0
