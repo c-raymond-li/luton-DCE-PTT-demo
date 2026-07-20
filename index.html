@@ -234,12 +234,12 @@
 
   var PTT_LEVELS = [
     {rawTime: 15, changes: 0, walkMinutes: 0, desc: "15 minutes on the bus, no changes, direct route"},
+    {rawTime: 25, changes: 0, walkMinutes: 0, desc: "25 minutes on the bus, no changes, direct route"},
     {rawTime: 25, changes: 1, walkMinutes: 0, desc: "25 minutes on the bus, 1 change"},
     {rawTime: 40, changes: 1, walkMinutes: 0, desc: "40 minutes on the bus, 1 change"},
     {rawTime: 40, changes: 2, walkMinutes: 0, desc: "40 minutes on the bus, 2 changes"},
     {rawTime: 55, changes: 2, walkMinutes: 0, desc: "55 minutes on the bus, 2 changes"},
-    {rawTime: 55, changes: 2, walkMinutes: 10, desc: "55 minutes on the bus, 2 changes, plus a 10 minute walk"},
-    {rawTime: 75, changes: 2, walkMinutes: 10, desc: "75 minutes on the bus, 2 changes, plus a 10 minute walk"}
+    {rawTime: 55, changes: 2, walkMinutes: 10, desc: "55 minutes on the bus, 2 changes, plus a 10 minute walk"}
   ];
   PTT_LEVELS.forEach(function(l){
     l.gjt = l.rawTime + l.walkMinutes + (l.changes * INTERCHANGE_PENALTY_MINUTES);
@@ -506,7 +506,7 @@
         var votedP = lastVotedPttLevel === session.ptt.levelIndex;
         var selP = votedP ? null : pendingChoice;
         html += '<div class="clipboard">';
-        html += '<div class="reference-box"><b>Your standard position:</b> you are a woman at average risk of breast cancer, invited for your routine mammogram at a mobile breast screening unit. <b>Note:</b> each bus change is treated as costing an extra '+INTERCHANGE_PENALTY_MINUTES+' minutes of perceived travel time on top of the clock time, a standard transport-appraisal convention (published UK guidance suggests roughly 3-15 minutes per change depending on the interchange), so journeys below are compared on this combined "generalised journey time" basis.</div>';
+        html += '<div class="reference-box"><b>Scenario:</b> Luton Public Health is considering moving the mobile breast screening unit to a different part of Luton. You are a woman at average risk of breast cancer, invited for your routine mammogram at the mobile unit, and we want to know how far away, by public transport, would still be acceptable to you. <b>Note:</b> each bus change is treated as costing an extra '+INTERCHANGE_PENALTY_MINUTES+' minutes of perceived travel time on top of the clock time to produce a combined "generalised journey time".</div>';
         html += '<h2>Getting to the mobile unit by public transport takes:</h2>';
         html += '<p class="lede" style="font-size:18px; color:var(--ink);"><b>'+lvl.label+'</b></p>';
         html += '<div class="risk-card"><div class="eyebrow">Would you still go to your appointment?</div>';
